@@ -1,0 +1,34 @@
+hardware:
+  gpu: "cpu"
+
+network:
+  bind_host: "localhost"
+  ports:
+    chromadb: 8000
+
+paths:
+  vault: "/tmp/test_vault"
+  model_store: "/tmp/test_models"
+  manifest_dir: "/tmp/test_manifest"
+
+embedding:
+  model_file: "test-model.gguf"
+  n_ctx: 512
+  n_gpu_layers: 0
+  split_headers: ["#", "##"]
+  embed_batch_size: 32
+
+chromadb:
+  collection_name: "test_collection"
+  distance_metric: "cosine"
+  auth_token: "test-token"
+
+sync:
+  exclude_patterns: ["*.tmp", "Temp*"]
+  prune_deleted: True
+  embed_batch_size: 32
+
+jan:
+  base_url: "http://localhost:1337"
+  inference_model: "test-model"
+  embedding_model: "test-embed-model"

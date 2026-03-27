@@ -1,0 +1,76 @@
+# Homeschool Open Configuration Template
+# COPY THIS FILE TO config.yaml AND CUSTOMIZE THE VALUES
+# 
+# WARNING: This template is for DEVELOPMENT/LOCAL USE ONLY.
+# It contains obvious placeholders and development-friendly defaults.
+# DO NOT use this in production without reviewing and securing all values.
+#
+# For production use, see locked_down_config.yaml instead.
+
+# Hardware Configuration
+# Options: cpu, nvidia, metal
+# For local development, cpu is usually sufficient
+hardware:
+  gpu: "cpu"  
+
+# Network Configuration
+# Binding to localhost is safe for development
+network:
+  bind_host: "localhost"
+  ports:
+    chromadb: 8000  # Default port for ChromaDB
+
+# Paths Configuration
+# For development, you can use temporary or local directories
+# REPLACE THESE WITH ACTUAL PATHS ON YOUR SYSTEM
+paths:
+  vault: "/path/to/your/obsidian/vault"  # <-- CHANGE_ME: Your Obsidian vault path
+  model_store: "/path/to/your/models"    # <-- CHANGE_ME: Directory for AI models
+  manifest_dir: null                     # Uses default: ~/.sovereign_brain/manifest
+
+# Embedding Model Configuration
+# These settings control the AI model used for understanding your notes
+embedding:
+  model_file: "nomic-embed-text-v1.5.Q4_K_M.gguf"  # Embedding model file
+  n_ctx: 512                                       # Context window size
+  n_gpu_layers: 32                                 # GPU layers (0 for CPU-only)
+  split_headers:                                   # Headers to split notes on
+    - "#"
+    - "##"
+    - "###"
+  embed_batch_size: 32                             # Batch size for embedding generation
+
+# ChromaDB Configuration (Vector Database)
+# For local development, we generate a token you should replace
+chromadb:
+  collection_name: "homeschool"                    # Name of the collection
+  distance_metric: "cosine"                        # Distance metric for similarity
+  auth_token: "CHANGE_ME_TO_A_SECURE_RANDOM_TOKEN" # <-- CHANGE_ME: Generate with:
+                                                   #   python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# Sync Configuration
+# Controls how notes are processed and synchronized
+sync:
+  exclude_patterns:                                # File patterns to ignore
+    - "**/*.tmp"
+    - "**/*.log"
+    - "**/.git/**"
+  prune_deleted: true                              # Remove deleted notes from database
+  embed_batch_size: 32                             # Batch size for sync operations
+
+# Jan AI Service Configuration (Optional)
+# Only needed if using external AI services like OpenAI/API
+jan:
+  base_url: "http://localhost:1337"                # Jan service URL (if using)
+  inference_model: "nemotron-3-super"              # Model for text generation
+  embedding_model: "nomic-embed-text"              # Model for embeddings (if different from above)
+
+# ================
+# GETTING STARTED
+# ================
+# 1. Copy this file: cp open_config.yaml config.yaml
+# 2. Edit config.yaml and replace all CHANGE_ME values
+# 3. Set your Obsidian vault path in paths.vault
+# 4. Generate a secure auth_token for chromadb
+# 5. Adjust other settings as needed for your system
+# 6. Run: python -m homeschool sync

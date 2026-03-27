@@ -1,0 +1,150 @@
+# Homeschool Locked-Down Configuration Template
+# COPY THIS FILE TO config.yaml AND CUSTOMIZE THE VALUES
+# 
+# THIS TEMPLATE IS DESIGNED FOR PRODUCTION AND SECURITY-FOCUSED DEPLOYMENTS
+# It contains security best practices and guidance for hardened configuration
+#
+# WARNING: Even with this template, you MUST:
+#   - Replace all placeholder values with strong, unique credentials
+#   - Review and adjust settings for your specific environment
+#   - Implement additional security measures appropriate to your threat model
+
+# ============
+# HARDWARE SETUP
+# ============
+# Hardware acceleration settings
+# Options: cpu, nvidia, metal
+# For security-conscious users, consider CPU-only unless GPU acceleration is required
+# and you have verified the security of your GPU drivers and CUDA environment
+hardware:
+  gpu: "cpu"  # DEFAULT: CPU-only for maximum isolation. Change only if needed.
+
+# =========
+# NETWORK
+# =========
+# Network binding and port configuration
+# For maximum security, bind to localhost only and use firewalls to restrict access
+network:
+  bind_host: "127.0.0.1"  # LOCALHOST ONLY: Prevents external access by default
+  ports:
+    chromadb: 8000        # Consider changing from default and firewalling
+
+# =======
+# PATHS
+# =======
+# Filesystem paths - CRITICAL: Secure these directories appropriately
+# Ensure the user running Homeschool has ONLY necessary permissions
+paths:
+  vault: "/path/to/SECURED/obsidian/vault"      # <-- CHANGE_ME: Use encrypted filesystem if needed
+  model_store: "/path/to/SECURED/model/store"   # <-- CHANGE_ME: Protect AI models (may contain sensitive data)
+  manifest_dir: "/path/to/SECURED/manifest"     # <-- CHANGE_ME: Directory for internal tracking
+
+# =============
+# EMBEDDING MODEL
+# =============
+# Configuration for the local embedding model
+# These files may contain sensitive information derived from your notes
+embedding:
+  model_file: "nomic-embed-text-v1.5.Q4_K_M.gguf"  # Verify model source and integrity
+  n_ctx: 512                                       # Standard context size
+  n_gpu_layers: 0                                  # SECURITY: 0 for CPU-only to avoid GPU complexities
+  split_headers:                                   # Header levels for note chunking
+    - "#"
+    - "##"
+    - "###"
+  embed_batch_size: 32                             # Processing batch size
+
+# ================
+# CHROMADB SETTINGS
+# ================
+# Vector database for semantic search and deduplication
+# NOTE: This database contains embeddings of your notes - treat as sensitive
+chromadb:
+  collection_name: "homeschool_production"       # <-- CHANGE_ME: Use unique name
+  distance_metric: "cosine"                      # Standard for text embeddings
+  auth_token: "GENERATE_STRONG_TOKEN_AND_CHANGE_ME"  # <-- CRITICAL: MUST CHANGE
+                                                  # Generate with: openssl rand -hex 32
+                                                  # or: python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# =======
+# SYNC
+# =======
+# Settings for processing and synchronizing notes
+sync:
+  exclude_patterns:                              # Patterns to ignore during sync
+    - "**/*.tmp"
+    - "**/*.log"
+    - "**/.git/**"
+    - "**/*.bak"
+    - "**/*~"
+  prune_deleted: true                            # Clean up deleted notes
+  embed_batch_size: 32                           # Batch size for database operations
+
+# ======
+# JAN
+# ======
+# Configuration for Jan AI service (if used)
+# ONLY CONFIGURE IF YOU ARE USING EXTERNAL AI SERVICES
+# For maximum privacy, consider using local models only and leave this disabled
+jan:
+  # Example configuration - ONLY uncomment and configure if using Jan
+  # base_url: "http://localhost:1337"
+  # inference_model: "your-private-model"
+  # embedding_model: "your-private-embedding-model"
+  #
+  # SECURITY NOTE: If configuring Jan:
+  #   - Ensure network is properly firewalled
+  #   - Consider using authentication if Jan supports it
+  #   - Be aware that data sent to Jan leaves your trust boundary
+
+# ========================
+# SECURITY BEST PRACTICES
+# ========================
+#
+# 1. CREDENTIALS:
+#    - NEVER commit config.yaml with real values to version control
+#    - Consider using environment variables for secrets in production
+#    - Rotate chromadb.auth_token periodically
+#
+# 2. FILESYSTEM PERMISSIONS:
+#    - Ensure Homeschool process runs with minimal required privileges
+#    - Vault, model_store, and manifest_dir should be accessible ONLY to needed users
+#    - Consider encrypting sensitive directories (especially vault containing notes)
+#
+# 3. NETWORK SECURITY:
+#    - Default bind_host is 127.0.0.1 (localhost only) for security
+#    - If external access is absolutely required, use SSH tunneling or VPN
+#    - Never expose ChromaDB or Jan ports directly to the internet
+#    - Consider local firewall rules to restrict access even localhost
+#
+# 4. DATA PROTECTION:
+#    - Notes in your vault may contain sensitive personal information
+#    - The embedding process creates mathematical representations of this data
+#    - ChromaDB stores these embeddings - secure this database
+#    - Regularly backup encrypted copies of your vault and config
+#
+# 5. MODEL SECURITY:
+#    - Verify the integrity and source of any AI models you use
+#    - Consider air-gapped verification for models in high-security environments
+#    - Monitor for model updates and security advisories
+#
+# 6. AUDITING AND MONITORING:
+#    - Monitor logs for unexpected access patterns
+#    - Consider enabling audit logging if your filesystem supports it
+#    - Regularly review which processes have access to your data directories
+#
+# 7. UPDATE PRACTICES:
+#    - Keep all components (Homeschool, Docker, models, OS) updated
+#    - Subscribe to security announcements for dependencies
+#    - Test updates in a staging environment before production deployment
+
+# ================
+# GETTING STARTED
+# ================
+# 1. COPY TEMPLATE: cp locked_down_config.yaml config.yaml
+# 2. EDIT THOROUGHLY: Review EVERY line and adjust for your environment
+# 3. REPLACE ALL PLACEHOLDERS: Especially paths and auth_token
+# 4. APPLY SYSTEM SECURITY: Configure filesystem permissions, firewalls, etc.
+# 5. VALIDATE CONFIGURATION: Ensure Homeschool starts without errors
+# 6. TEST IN ISOLATION: Verify functionality before connecting to sensitive systems
+# 7. REGULAR REVIEW: Periodically reassess your security configuration
