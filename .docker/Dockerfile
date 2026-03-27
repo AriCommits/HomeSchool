@@ -24,7 +24,7 @@ RUN if [ "$LLAMA_CUBLAS" = "1" ]; then \
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY sync.py .
+COPY ../homeschool/sync.py .
 
 CMD ["python", "sync.py"]
 ```

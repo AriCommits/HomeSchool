@@ -66,10 +66,26 @@ class Config:
         vault = self.paths.vault
         if vault == Path("/path/to/your/obsidian/vault"):
             errors.append("paths.vault has not been set in config.yaml")
+        else:
+            # Check if vault path exists and is readable
+            if not vault.exists():
+                errors.append(f"Vault path does not exist: {vault}")
+            elif not vault.is_dir():
+                errors.append(f"Vault path is not a directory: {vault}")
+            elif not os.access(vault, os.R_OK):
+                errors.append(f"Vault path is not readable: {vault}")
 
         model_store = self.paths.model_store
         if model_store == Path("/path/to/your/ModelStore"):
             errors.append("paths.model_store has not been set in config.yaml")
+        else:
+            # Check if model_store path exists and is readable
+            if not model_store.exists():
+                errors.append(f"Model store path does not exist: {model_store}")
+            elif not model_store.is_dir():
+                errors.append(f"Model store path is not a directory: {model_store}")
+            elif not os.access(model_store, os.R_OK):
+                errors.append(f"Model store path is not readable: {model_store}")
 
         if self.chromadb.auth_token == "CHANGE_ME":
             errors.append(
@@ -83,6 +99,15 @@ class Config:
                 f"hardware.gpu must be one of: cpu, nvidia, metal "
                 f"(got '{self.hardware.gpu}')"
             )
+
+        # Check manifest directory permissions
+        manifest_dir = self.paths.manifest_dir
+        try:
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            if not os.access(manifest_dir, os.W_OK):
+                errors.append(f"Manifest directory is not writable: {manifest_dir}")
+        except Exception as e:
+            errors.append(f"Cannot create or access manifest directory: {manifest_dir} - {str(e)}")
 
         if errors:
             raise ConfigError(
@@ -161,7 +186,7 @@ class PathsConfig:
 
     @property
     def embed_model(self) -> Path:
-        from src.homeschool.config import load
+        from .config import load
         cfg = load()
         return self.model_store / cfg.embedding.model_file
 

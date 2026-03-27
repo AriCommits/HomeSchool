@@ -8,10 +8,11 @@ from enum import Enum
 from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
-from src.homeschool.config import load
+from .config import load
+from .logging import get_logger
 
 cfg = load()
-log = structlog.get_logger()
+log = get_logger(__name__)
 
 class TxStatus(str, Enum):
     RUNNING  = "running"

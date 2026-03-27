@@ -18,6 +18,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 10s
       retries: 3
+      start_period: 5s
+      timeout: 10s
 
   sync_worker:
     build: .        # your Dockerfile lives here
@@ -35,6 +37,13 @@ services:
         condition: service_healthy
     profiles:
       - sync    # only runs when explicitly called, not on `compose up`
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "try:\n import requests\n r = requests.get('http://chromadb:8000/api/v1/heartbeat', timeout=5)\n r.raise_for_status()\nexcept:\n sys.exit(1)"]
+      interval: 30s
+      retries: 3
+      start_period: 40s
+      timeout: 10s
 
 volumes:
   chroma_data:
