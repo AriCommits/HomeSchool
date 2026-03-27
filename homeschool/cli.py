@@ -216,6 +216,72 @@ def reset_command(args: argparse.Namespace) -> int:
         return 1
 
 
+def sync_command(args: argparse.Namespace) -> int:
+    """Manually trigger synchronization process."""
+    logger.info("Starting manual sync process", database=args.database)
+    
+    # Load configuration to validate database exists
+    try:
+        config = load()
+        if args.database not in config.databases:
+            logger.error("Database not found in configuration", 
+                        database=args.database,
+                        available_databases=list(config.databases.keys()))
+            print(f"Error: Database '{args.database}' not found in configuration.")
+            print(f"Available databases: {', '.join(config.databases.keys())}")
+            return 1
+    except Exception as e:
+        logger.error("Failed to load configuration", error=str(e))
+        return 1
+    
+    # Change to the .docker directory where docker-compose is located
+    import subprocess
+    from pathlib import Path
+    
+    docker_dir = Path(__file__).parent.parent / ".docker"
+    
+    if not docker_dir.exists():
+        logger.error("Docker directory not found", docker_dir=str(docker_dir))
+        return 1
+    
+    # Set environment variables for docker-compose
+    env = os.environ.copy()
+    env.update({
+        "CHROMA_TOKEN": config.chromadb.auth_token,
+        "VAULT_PATH": str(config.paths.vault),
+        "MODEL_STORE": str(config.paths.model_store),
+        "SYNC_DATABASE": args.database  # Pass database selection to sync worker
+    })
+    
+    # Run docker compose to start the sync worker
+    try:
+        logger.info("Running docker compose", docker_dir=str(docker_dir))
+        result = subprocess.run(
+            ["docker", "compose", "run", "--rm", "sync_worker"],
+            cwd=docker_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env
+        )
+        logger.info("Sync completed successfully")
+        print(result.stdout)
+        if result.stderr:
+            print("Warnings:", result.stderr)
+        return 0
+    except subprocess.CalledProcessError as e:
+        logger.error("Sync failed", exit_code=e.returncode, stdout=e.stdout, stderr=e.stderr)
+        print(f"Sync failed with exit code {e.returncode}")
+        if e.stdout:
+            print("STDOUT:", e.stdout)
+        if e.stderr:
+            print("STDERR:", e.stderr)
+        return e.returncode
+    except FileNotFoundError:
+        logger.error("Docker command not found")
+        return 1
+
+
 def main() -> int:
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -286,6 +352,16 @@ Examples:
         help="Keep Docker volumes when resetting"
     )
     reset_parser.set_defaults(func=reset_command)
+
+    # Sync command
+    sync_parser = subparsers.add_parser("sync", help="Manually trigger synchronization")
+    sync_parser.add_argument(
+        "--database",
+        type=str,
+        default="default",
+        help="Specify which database to sync to (default: default)"
+    )
+    sync_parser.set_defaults(func=sync_command)
     
     # Parse arguments
     args = parser.parse_args()

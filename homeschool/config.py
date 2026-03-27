@@ -145,6 +145,13 @@ class Config:
     def jan(self) -> "JanConfig":
         return JanConfig(self._data["jan"])
 
+    @property
+    def databases(self) -> dict:
+        return self._data.get("databases", {"default": {
+            "vault_subpath": "",
+            "collection": self.chromadb.collection_name
+        }})
+
 
 class HardwareConfig:
     def __init__(self, d: dict):
@@ -202,7 +209,7 @@ class EmbeddingConfig:
 
 class ChromaConfig:
     def __init__(self, d: dict):
-        self.collection_name:  str = d["collection_name"]
+        self.collection_name:  str = d.get("collection_name", "homeschool")  # Default for backward compatibility
         self.distance_metric:  str = d["distance_metric"]
         self.auth_token:       str = d["auth_token"]
 

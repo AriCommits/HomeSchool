@@ -25,9 +25,21 @@ embedding:
   embed_batch_size: 32
 
 chromadb:
-  collection_name: "homeschool"
+  collection_name: "homeschool"  # Default collection for backward compatibility
   distance_metric: "cosine"
   auth_token: "a45c6052e606020ab8a3e067ec1c9230aaf71517d71daa1afd5af17b7d4409eb"  # Generated secret
+
+# Database configurations - each database maps to a ChromaDB collection
+databases:
+  default:  # Used when no database specified
+    vault_subpath: ""  # Sync entire vault
+    collection: "homeschool"
+  essay:
+    vault_subpath: "essays"  # Sync only essays subdirectory
+    collection: "essay_collection"
+  homework:
+    vault_subpath: "homework"
+    collection: "homework_collection"
 
 sync:
   exclude_patterns:
