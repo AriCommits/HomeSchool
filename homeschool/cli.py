@@ -216,8 +216,29 @@ def reset_command(args: argparse.Namespace) -> int:
         return 1
 
 
+def _validate_database_name(database: str) -> bool:
+    """
+    Validate database name to prevent command injection.
+    Only allows alphanumeric characters, hyphens, and underscores.
+    """
+    import re
+    if not database or len(database) > 64:
+        return False
+    # Strict whitelist: alphanumeric, hyphens, underscores only
+    return bool(re.match(r'^[a-zA-Z0-9_-]+$', database))
+
+
 def sync_command(args: argparse.Namespace) -> int:
     """Manually trigger synchronization process."""
+    
+    # Validate database name before use (Security: prevent command injection)
+    if not _validate_database_name(args.database):
+        logger.error("Invalid database name - must be alphanumeric with hyphens/underscores only",
+                    database=args.database)
+        print(f"Error: Invalid database name '{args.database}'.")
+        print("Database names can only contain letters, numbers, hyphens, and underscores.")
+        return 1
+    
     logger.info("Starting manual sync process", database=args.database)
     
     # Load configuration to validate database exists
@@ -245,12 +266,14 @@ def sync_command(args: argparse.Namespace) -> int:
         return 1
     
     # Set environment variables for docker-compose
+    # Security Note: Tokens in environment variables are visible via /proc
+    # This is a known limitation of container orchestration
     env = os.environ.copy()
     env.update({
         "CHROMA_TOKEN": config.chromadb.auth_token,
         "VAULT_PATH": str(config.paths.vault),
         "MODEL_STORE": str(config.paths.model_store),
-        "SYNC_DATABASE": args.database  # Pass database selection to sync worker
+        "SYNC_DATABASE": args.database
     })
     
     # Run docker compose to start the sync worker
@@ -360,6 +383,11 @@ Examples:
         type=str,
         default="default",
         help="Specify which database to sync to (default: default)"
+    )
+    sync_parser.add_argument(
+        "--force-regen",
+        action="store_true",
+        help="Force regeneration of all flashcards, bypassing change detection"
     )
     sync_parser.set_defaults(func=sync_command)
     

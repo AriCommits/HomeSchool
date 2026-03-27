@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import re
 from pathlib import Path
 from functools import lru_cache
 from typing import Any
@@ -16,6 +17,31 @@ DEFAULT_MANIFEST_DIR = Path.home() / ".sovereign_brain" / "manifest"
 
 class ConfigError(Exception):
     pass
+
+
+class _SafeLoader(yaml.SafeLoader):
+    """Custom SafeLoader that prevents arbitrary Python object construction."""
+    pass
+
+
+def _safe_yaml_load(text: str) -> dict:
+    """
+    Safely load YAML configuration.
+    Uses SafeLoader with no object construction to prevent RCE.
+    """
+    try:
+        # Use yaml.safe_load which already restricts object construction
+        # but we'll also validate the structure afterward
+        data = yaml.load(text, Loader=_SafeLoader)
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            raise ConfigError("config.yaml must contain a YAML mapping (dictionary)")
+        return data
+    except yaml.constructor.ConstructorError as e:
+        raise ConfigError(f"config.yaml contains unsafe objects: {e}")
+    except yaml.YAMLError as e:
+        raise ConfigError(f"Invalid YAML in config.yaml: {e}")
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -50,8 +76,20 @@ def load() -> "Config":
             f"config.yaml not found at {CONFIG_PATH}\n"
             "Copy config.yaml.example to config.yaml and fill in your values."
         )
-    raw = yaml.safe_load(CONFIG_PATH.read_text())
+    raw = _safe_yaml_load(CONFIG_PATH.read_text())
     raw = _resolve_env_vars(raw)
+    
+    # Security: Validate database vault_subpaths don't contain path traversal
+    if 'databases' in raw:
+        for db_name, db_config in raw['databases'].items():
+            if isinstance(db_config, dict) and 'vault_subpath' in db_config:
+                subpath = db_config['vault_subpath']
+                if '..' in subpath or subpath.startswith('/'):
+                    raise ConfigError(
+                        f"Database '{db_name}' vault_subpath contains invalid path: {subpath}\n"
+                        "Path traversal is not allowed."
+                    )
+    
     return Config(raw)
 
 
@@ -146,11 +184,23 @@ class Config:
         return JanConfig(self._data["jan"])
 
     @property
+    def deduplication(self) -> "DeduplicationConfig":
+        return DeduplicationConfig(self._data.get("deduplication", {}))
+
+    @property
     def databases(self) -> dict:
         return self._data.get("databases", {"default": {
             "vault_subpath": "",
             "collection": self.chromadb.collection_name
         }})
+
+
+class DeduplicationConfig:
+    """Configuration for semantic deduplication."""
+    def __init__(self, d: dict):
+        self.enabled: bool = d.get("enabled", True)
+        self.similarity_threshold: float = d.get("similarity_threshold", 0.85)
+        self.skip_similar_cards: bool = d.get("skip_similar_cards", True)
 
 
 class HardwareConfig:

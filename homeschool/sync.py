@@ -52,15 +52,24 @@ def main():
         collection_name = db_config.get("collection", "homeschool")
         
         logger.info("Database configuration", 
-                   vault_subpath=vault_subpath,
-                   collection=collection_name)
+vault_subpath=vault_subpath,
+                    collection=collection_name)
         
-        # Calculate sync directory
+        # Calculate sync directory with path traversal protection
         vault_path = config.paths.vault
         if vault_subpath:
-            sync_directory = vault_path / vault_subpath
+            sync_directory = (vault_path / vault_subpath).resolve()
         else:
-            sync_directory = vault_path
+            sync_directory = vault_path.resolve()
+        
+        # Security: Validate resolved path is within vault bounds
+        vault_resolved = vault_path.resolve()
+        if not str(sync_directory).startswith(str(vault_resolved)):
+            logger.error("Path traversal attempt detected", 
+                        requested=str(sync_directory),
+                        vault=str(vault_resolved))
+            print(f"Error: Invalid vault_subpath - path traversal not allowed")
+            sys.exit(1)
         
         logger.info("Sync directory", path=str(sync_directory))
         
@@ -119,14 +128,30 @@ def main():
                    directory=str(sync_directory),
                    exclude_patterns=exclude_patterns)
         
-        # We'll collect the files to process
+        # Security: Don't follow symlinks to prevent directory traversal attacks
         files_to_process = []
-        for root, dirs, files in os.walk(sync_directory):
-            # Skip directories that match exclude patterns (simplified: we don't implement directory exclusion here)
+        for root, dirs, files in os.walk(sync_directory, followlinks=False):
+            # Security: Check that root is within sync_directory (prevent symlink escapes)
+            root_path = Path(root).resolve()
+            if not str(root_path).startswith(str(sync_directory)):
+                logger.warning("Skipping directory outside sync scope", path=str(root_path))
+                dirs.clear()  # Don't descend into this directory
+                continue
+            
+            # Skip symlinked directories
+            dirs[:] = [d for d in dirs if not (Path(root) / d).is_symlink()]
+            
+            # Process files
             for file in files:
                 if file.endswith(".md"):
                     file_path = Path(root) / file
-                    # Check if the file matches any exclude pattern (simplified: we do a basic check)
+                    
+                    # Security: Skip symlinked files to prevent symlink attacks
+                    if file_path.is_symlink():
+                        logger.warning("Skipping symlinked file", path=str(file_path))
+                        continue
+                    
+                    # Check if the file matches any exclude pattern
                     excluded = False
                     for pattern in exclude_patterns:
                         # Simple wildcard matching: we only support suffix matching for simplicity
@@ -187,6 +212,14 @@ def main():
                 
                 logger.info("File frontmatter", frontmatter=frontmatter)
                 
+                # Security: Limit content size before processing
+                MAX_CONTENT_LENGTH = 1000000  # 1MB per note
+                MAX_QUESTION_LENGTH = 1000
+                MAX_ANSWER_LENGTH = 5000
+                if len(content) > MAX_CONTENT_LENGTH:
+                    logger.warning("Note too large, skipping", file=str(file_path), size=len(content))
+                    continue
+                
                 # Simple flashcard extraction (look for :: patterns)
                 import re
                 # Pattern for flashcards: question::answer
@@ -197,6 +230,13 @@ def main():
                 for match in matches:
                     question = match[0].strip()
                     answer = match[1].strip()
+                    # Security: Validate flashcard content length
+                    if len(question) > MAX_QUESTION_LENGTH:
+                        logger.warning("Question too long, truncating", question=question[:50])
+                        question = question[:MAX_QUESTION_LENGTH]
+                    if len(answer) > MAX_ANSWER_LENGTH:
+                        logger.warning("Answer too long, truncating", answer=answer[:50])
+                        answer = answer[:MAX_ANSWER_LENGTH]
                     if question and answer:
                         flashcards.append({
                             'question': question,

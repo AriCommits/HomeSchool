@@ -32,3 +32,11 @@ jan:
   base_url: "http://localhost:1337"
   inference_model: "test-model"
   embedding_model: "test-embed-model"
+
+databases:
+  default:
+    vault_subpath: ""
+    collection: "test_collection"
+  essay:
+    vault_subpath: "essays"
+    collection: "essay_collection"

@@ -7,11 +7,70 @@ Configures structlog with appropriate processors and handlers.
 import logging
 import logging.handlers
 import sys
+import re
 from pathlib import Path
 from typing import Any, Dict
 
 import structlog
 from structlog.types import Processor
+
+# Security: Keys that should never be logged
+SENSITIVE_KEYS = frozenset([
+    'auth_token', 'token', 'password', 'secret', 'credential',
+    'api_key', 'apikey', 'private_key', 'token', 'access_token',
+    'chromadb.auth_token', 'CHROMA_TOKEN', 'api_token', 'session_token'
+])
+
+# Patterns that might contain sensitive data
+SENSITIVE_PATTERNS = [
+    r'[a-zA-Z0-9]{32,}',  # Long alphanumeric strings (likely tokens)
+    r'-----BEGIN.*PRIVATE KEY-----',
+    r'sk-[a-zA-Z0-9]{20,}',  # OpenAI-style keys
+]
+
+
+def _sanitize_log_data(event_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Remove sensitive information from log events.
+    Called as a processor before logs are written.
+    """
+    # Check log level - be more restrictive in DEBUG mode
+    log_level = event_dict.get('level', 'INFO').upper()
+    
+    # Create a new dict with sanitized values
+    sanitized = {}
+    for key, value in event_dict.items():
+        key_lower = key.lower()
+        
+        # Skip completely sensitive keys
+        if any(sensitive in key_lower for sensitive in SENSITIVE_KEYS):
+            sanitized[key] = "[REDACTED]"
+            continue
+        
+        # Sanitize string values
+        if isinstance(value, str):
+            # Check if string looks like a token
+            if len(value) >= 32 and any(c.isalpha() for c in value) and any(c.isdigit() for c in value):
+                # Might be a token - sanitize
+                sanitized[key] = value[:4] + "[REDACTED]" + value[-4:] if len(value) > 16 else "[REDACTED]"
+                continue
+            sanitized[key] = value
+        else:
+            sanitized[key] = value
+    
+    return sanitized
+
+
+def _filter_sensitive_fields(processor: Processor) -> Processor:
+    """
+    Wrap a processor to filter sensitive data from log output.
+    """
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
+        result = processor(*args, **kwargs)
+        if isinstance(result, dict):
+            return _sanitize_log_data(result)
+        return result
+    return wrapped
 
 
 def add_log_level(logger: Any, method_name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -62,11 +121,13 @@ def configure_logging(
         )
 
     # Shared processors for both JSON and console output
+    # Security: Always sanitize sensitive data regardless of log level
     shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.StackInfoRenderer(),
         structlog.dev.set_exc_info,
+        _sanitize_log_data,  # Security: Remove sensitive data from all logs
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
