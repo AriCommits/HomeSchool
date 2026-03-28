@@ -7,11 +7,13 @@ Run with: python -m homeschool sync
 import os
 import sys
 import signal
-import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from .logging import configure_logging, get_logger
 from .config import load, ConfigError
+from .path_security import is_path_within_directory
+from .apkg_exporter import export_apkg, ApkgExportError
 
 # Configure logging
 configure_logging(log_level="INFO")
@@ -64,7 +66,7 @@ vault_subpath=vault_subpath,
         
         # Security: Validate resolved path is within vault bounds
         vault_resolved = vault_path.resolve()
-        if not str(sync_directory).startswith(str(vault_resolved)):
+        if not is_path_within_directory(sync_directory, vault_resolved):
             logger.error("Path traversal attempt detected", 
                         requested=str(sync_directory),
                         vault=str(vault_resolved))
@@ -119,6 +121,15 @@ vault_subpath=vault_subpath,
         except Exception as e:
             logger.error("Failed to get/create collection", error=str(e))
             sys.exit(1)
+
+        force_regen = os.environ.get("FORCE_REGEN", "0") == "1"
+        if force_regen:
+            try:
+                logger.info("Force regeneration enabled; clearing collection before sync", collection=collection_name)
+                collection.delete(where={})
+            except Exception as e:
+                logger.error("Failed to clear collection for force regeneration", error=str(e))
+                sys.exit(1)
         
         # Walk the sync directory for markdown files, excluding patterns
         exclude_patterns = config.sync.exclude_patterns
@@ -133,7 +144,7 @@ vault_subpath=vault_subpath,
         for root, dirs, files in os.walk(sync_directory, followlinks=False):
             # Security: Check that root is within sync_directory (prevent symlink escapes)
             root_path = Path(root).resolve()
-            if not str(root_path).startswith(str(sync_directory)):
+            if not is_path_within_directory(root_path, sync_directory):
                 logger.warning("Skipping directory outside sync scope", path=str(root_path))
                 dirs.clear()  # Don't descend into this directory
                 continue
@@ -188,6 +199,7 @@ vault_subpath=vault_subpath,
         
         # Process each file
         processed_count = 0
+        cards_for_export = []
         for file_path in files_to_process:
             try:
                 logger.info("Processing file", file=str(file_path))
@@ -238,11 +250,22 @@ vault_subpath=vault_subpath,
                         logger.warning("Answer too long, truncating", answer=answer[:50])
                         answer = answer[:MAX_ANSWER_LENGTH]
                     if question and answer:
+                        tags = []
+                        raw_tags = frontmatter.get("tags")
+                        if isinstance(raw_tags, list):
+                            tags = [str(t) for t in raw_tags]
+                        elif isinstance(raw_tags, str) and raw_tags.strip():
+                            tags = [raw_tags.strip()]
+
+                        deck_name = str(frontmatter.get("deck") or f"Homeschool::{database_name}")
+
                         flashcards.append({
                             'question': question,
                             'answer': answer,
                             'source_file': str(file_path.relative_to(vault_path)) if file_path.is_relative_to(vault_path) else str(file_path),
-                            'frontmatter': frontmatter
+                            'frontmatter': frontmatter,
+                            'deck': deck_name,
+                            'tags': tags,
                         })
                 
                 logger.info("Found flashcards in file", count=len(flashcards), file=str(file_path))
@@ -278,6 +301,15 @@ vault_subpath=vault_subpath,
                     
                     # Create unique ID for this card
                     card_id = f"{card['source_file']}::{i}"
+
+                    cards_for_export.append(
+                        {
+                            "question": card["question"],
+                            "answer": card["answer"],
+                            "deck": card.get("deck", f"Homeschool::{database_name}"),
+                            "tags": card.get("tags", []),
+                        }
+                    )
                     
                     # Add to ChromaDB collection
                     try:
@@ -304,7 +336,28 @@ vault_subpath=vault_subpath,
         logger.info("File processing completed", 
                    files_processed=processed_count,
                    total_files=len(files_to_process))
-        
+
+        # Export a local Anki package for manual import (default workflow)
+        if cards_for_export:
+            export_dir = config.paths.manifest_dir / "exports"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            apkg_path = export_dir / f"{database_name}_{timestamp}.apkg"
+            try:
+                final_apkg = export_apkg(
+                    cards=cards_for_export,
+                    output_path=apkg_path,
+                    default_deck_name=f"Homeschool::{database_name}",
+                    media_files=[],
+                )
+                logger.info("APKG export completed", path=str(final_apkg), card_count=len(cards_for_export))
+                print(f"\nCreated Anki package: {final_apkg}")
+                print("Import it manually in Anki: File -> Import")
+            except ApkgExportError as e:
+                logger.error("Failed to export APKG", error=str(e))
+                print(f"Warning: APKG export failed: {e}")
+        else:
+            logger.info("No cards generated; skipping APKG export")
+
         # Get final count
         try:
             final_count = collection.count()

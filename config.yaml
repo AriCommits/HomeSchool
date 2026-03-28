@@ -27,7 +27,7 @@ embedding:
 chromadb:
   collection_name: "mcat"
   distance_metric: "cosine"
-  auth_token: "5a2a54e6addb10f54af3ebdf75d163247ae77c9b39cf5c107fb91054fffd2cd2"
+  auth_token: "CHANGE_ME"
 
 databases:
   default:

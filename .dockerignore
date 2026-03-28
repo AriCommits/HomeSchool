@@ -1,0 +1,26 @@
+.git
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Sensitive/local config
+.env
+.env.*
+config.yaml
+.docker/.env
+.docker/config.yaml
+
+# Local artifacts
+.coverage
+.pytest_cache/
+venv/
+dist/
+build/
+.mypy_cache/
+
+# Docs/plans not needed for runtime image
+.opencode/
+docs/
+tests/

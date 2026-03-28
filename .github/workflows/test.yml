@@ -10,7 +10,10 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
+      - run: pip install -r .docker/requirements.txt
+      - run: git ls-files -z | xargs -0 detect-secrets-hook --exclude-files '(^\.venv/|^\.opencode/node_modules/|^\.pytest_cache/)'
       - run: pytest tests/unit/ --cov=homeschool
       - run: pytest tests/integration/
       - run: pytest tests/e2e/
         if: github.event_name == 'push'
+      - run: pip-audit -r .docker/requirements.txt --ignore-vuln CVE-2026-4539

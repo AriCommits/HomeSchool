@@ -431,7 +431,8 @@ def sync_command(args: argparse.Namespace) -> int:
         "CHROMA_TOKEN": config.chromadb.auth_token,
         "VAULT_PATH": str(config.paths.vault),
         "MODEL_STORE": str(config.paths.model_store),
-        "SYNC_DATABASE": args.database
+        "SYNC_DATABASE": args.database,
+        "FORCE_REGEN": "1" if args.force_regen else "0",
     })
     
     # Run docker compose to start the sync worker

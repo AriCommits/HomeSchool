@@ -1,3 +1,34 @@
-*.env
-*__pycache__
-venv/*
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtualenvs
+venv/
+.venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local secrets/config
+.env
+.env.*
+config.yaml
+.docker/.env
+.docker/config.yaml
+
+# Local runtime data
+*.db
+*.sqlite
+*.sqlite3
+*.apkg
+.homeschool/
+
+# Local tool/vendor directories
+.opencode/node_modules/

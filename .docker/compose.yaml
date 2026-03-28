@@ -13,7 +13,7 @@ services:
       - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["http://localhost"]
     volumes:
       - chroma_data:/chroma/chroma
-      - ../../config.yaml:/app/config.yaml:ro
+      - ../config.yaml:/app/config.yaml:ro
     restart: unless-stopped
     # Security: Run as non-root user (if Dockerfile supports it)
     security_opt:
@@ -28,7 +28,9 @@ services:
       timeout: 10s
 
   sync_worker:
-    build: .
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile
     environment:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
@@ -38,10 +40,10 @@ services:
       # Instead, use Docker secrets or mounted credentials
     volumes:
        # Security: Added noexec,nosuid,nodev to prevent privilege escalation
-       - ${VAULT_PATH}:/vault:ro,noexec,nosuid,nodev
-       - ${MODEL_STORE}:/models:ro,noexec,nosuid,nodev
-       - sync_manifest:/app/manifest
-       - ../config.yaml:/app/config.yaml:ro
+        - ${VAULT_PATH}:/vault:ro,noexec,nosuid,nodev
+        - ${MODEL_STORE}:/models:ro,noexec,nosuid,nodev
+        - sync_manifest:/app/manifest
+        - ../config.yaml:/app/config.yaml:ro
     depends_on:
       chromadb:
         condition: service_healthy
@@ -54,14 +56,15 @@ services:
     # Security: Drop all capabilities
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+    user: "65532:65532"
     # Security: Limit resources to prevent DoS
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '0.5'
+    mem_limit: 1g
+    cpus: 0.5
     healthcheck:
-      test: ["CMD", "python", "-c", "try:\n import requests\n r = requests.get('http://chromadb:8000/api/v1/heartbeat', timeout=5)\n r.raise_for_status()\nexcept:\n sys.exit(1)"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://chromadb:8000/api/v1/heartbeat', timeout=5).raise_for_status()"]
       interval: 30s
       retries: 3
       start_period: 40s

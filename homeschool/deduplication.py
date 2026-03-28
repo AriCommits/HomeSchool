@@ -69,11 +69,12 @@ class SemanticDeduplicator:
             Tuple of (is_duplicate, similarity_score, existing_card_id)
         """
         embedding = self.compute_embedding(text)
-        if not embedding or not self._get_collection():
+        collection = self._get_collection()
+        if not embedding or collection is None:
             return False, 0.0, None
 
         try:
-            results = self._collection.query(
+            results = collection.query(
                 query_embeddings=[embedding],
                 n_results=1
             )
@@ -135,12 +136,12 @@ def create_deduplicator(
     Returns:
         Configured SemanticDeduplicator instance
     """
-    from .config import load
-    
     # Get threshold from config or use default
-    threshold = similarity_threshold or getattr(config, 'deduplication', {}).get(
-        'similarity_threshold', 0.85
-    )
+    if similarity_threshold is not None:
+        threshold = similarity_threshold
+    else:
+        dedup_cfg = getattr(config, "deduplication", None)
+        threshold = getattr(dedup_cfg, "similarity_threshold", 0.85)
     
     embedder = None
     # Try to use sentence-transformers if available

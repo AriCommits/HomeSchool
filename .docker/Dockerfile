@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY .docker/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir PyYAML
 
@@ -23,7 +23,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY homeschool/ ./homeschool/
 
-COPY config.yaml .
-
 CMD ["python", "-m", "homeschool", "sync"]
-

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 
 from .logging import get_logger
+from .path_security import is_path_within_directory
 
 logger = get_logger(__name__)
 
@@ -63,26 +64,18 @@ class MediaHandler:
             True if safe, False otherwise
         """
         try:
-            # Resolve to real path, following symlinks
-            resolved = path.resolve()
-            allowed_resolved = allowed_dir.resolve()
-            
-            # Check if resolved path starts with allowed directory
-            # This prevents symlink attacks where attacker links to sensitive files
-            resolved_str = str(resolved)
-            allowed_str = str(allowed_resolved)
-            
-            # Ensure the resolved path is within the allowed directory
-            if not resolved_str.startswith(allowed_str):
+            resolved = path.resolve(strict=False)
+            allowed_resolved = allowed_dir.resolve(strict=False)
+
+            if not is_path_within_directory(resolved, allowed_resolved):
                 return False
                 
             # Check if it's a symlink pointing outside allowed directory
             if path.is_symlink():
-                target = path.resolve()
-                target_str = str(target)
-                if not target_str.startswith(allowed_str):
+                target = path.resolve(strict=False)
+                if not is_path_within_directory(target, allowed_resolved):
                     logger.warning("Blocked symlink pointing outside vault",
-                                 symlink=str(path), target=target_str)
+                                 symlink=str(path), target=str(target))
                     return False
                     
             return True

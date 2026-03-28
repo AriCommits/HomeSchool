@@ -18,7 +18,7 @@ The system emphasizes manual control, privacy, and ease of use.
 - **Privacy-First**: All processing happens locally by default
 - **Flexible AI Integration**: Works with Jan AI, AnythingLLM, and other local tools
 - **Obsidian Compatible**: Designed to work with your existing note-taking workflow
-- **Anki Integration**: Generates flashcards ready for import into Anki
+- **Anki Package Export**: Generates `.apkg` files for manual import into Anki
 - **Configurable**: Adjust behavior through `config.yaml`
 
 ## Configuration Templates
@@ -62,6 +62,12 @@ Homeschool uses a three-step workflow:
    ```bash
    python -m homeschool sync
    ```
+   This generates a local `.apkg` file and prints its path.
+
+4. **Import package into Anki**
+   - Open Anki
+   - Use `File -> Import`
+   - Select the generated `.apkg`
 
 You only need to run the setup wizard once. For subsequent runs, use:
 ```bash
@@ -90,7 +96,7 @@ python -m homeschool completions powershell
 |---------|-------------|
 | `python -m homeschool init` | Create example configuration |
 | `python -m homeschool setup` | Interactive setup wizard |
-| `python -m homeschool sync` | Sync notes to Anki |
+| `python -m homeschool sync` | Build `.apkg` for Anki import |
 | `python -m homeschool status` | Check system status |
 | `python -m homeschool logs` | View log instructions |
 | `python -m homeschool reset` | Reset system (requires confirmation) |
@@ -130,10 +136,24 @@ docker compose up -d
 python -m homeschool sync
 ```
 
-5. Review results:
+5. Import into Anki manually:
+- Open Anki, then `File -> Import`
+- Select the generated `.apkg` file from the sync output path
+
+6. Review results:
 - Check Anki for new flashcards (requires manual confirmation)
 - Review generated questions and summaries in your vault
 - Process continues until you stop it
+
+### APKG Output
+
+`python -m homeschool sync` creates a timestamped `.apkg` file under your manifest export directory and prints its absolute path.
+
+If you use multiple configured databases, run:
+```bash
+python -m homeschool sync --database <name>
+```
+to generate a package specific to that database.
 
 ## Workflows
 

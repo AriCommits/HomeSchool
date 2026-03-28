@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Any
 
 import yaml
+from .path_security import is_safe_relative_subpath
 
 REPO_ROOT   = Path(__file__).parent.parent
 CONFIG_PATH = REPO_ROOT / "config.yaml"
@@ -84,7 +85,7 @@ def load() -> "Config":
         for db_name, db_config in raw['databases'].items():
             if isinstance(db_config, dict) and 'vault_subpath' in db_config:
                 subpath = db_config['vault_subpath']
-                if '..' in subpath or subpath.startswith('/'):
+                if not is_safe_relative_subpath(subpath):
                     raise ConfigError(
                         f"Database '{db_name}' vault_subpath contains invalid path: {subpath}\n"
                         "Path traversal is not allowed."

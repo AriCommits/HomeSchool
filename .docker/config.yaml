@@ -10,8 +10,8 @@ network:
     chromadb: 8000
 
 paths:
-  vault: "/Users/arian/Documents/Obsidian_Notes/LifeSciences"
-  model_store: "/Users/arian/Library/Application Support/Jan/data/llamacpp/models"
+  vault: "/path/to/your/obsidian/vault"
+  model_store: "/path/to/your/models"
   manifest_dir: null  # Uses default: ~/.sovereign_brain/manifest
 
 embedding:
@@ -27,7 +27,7 @@ embedding:
 chromadb:
   collection_name: "mcat"  # Default collection for backward compatibility
   distance_metric: "cosine"
-  auth_token: "a45c6052e606020ab8a3e067ec1c9230aaf71517d71daa1afd5af17b7d4409eb"  # Generated secret
+  auth_token: "CHANGE_ME"  # Generated secret
 
 # Database configurations - each database maps to a ChromaDB collection
 databases:

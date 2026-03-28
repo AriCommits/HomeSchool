@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from .config import load
 from .logging import get_logger
 
-cfg = load()
 log = get_logger(__name__)
 
 class TxStatus(str, Enum):
@@ -21,6 +20,7 @@ class TxStatus(str, Enum):
 
 
 def _get_conn() -> sqlite3.Connection:
+    cfg = load()
     db_path = cfg.paths.manifest_dir / "manifest.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
