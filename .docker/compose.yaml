@@ -1,73 +1,72 @@
 # docker-compose.yml
 # Security-hardened configuration
 services:
-  
-   chromadb:
-     image: chromadb/chroma:0.5.0   # pin the version for reproducibility
-     ports:
-       - "127.0.0.1:8000:8000"     # Bind to localhost only - not exposed externally
-     environment:
-       - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_TOKEN}
-       - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenConfigServerAuthCredentialsProvider
-       - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
-       - ANONYMIZED_TELEMETRY=false
-       - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["http://localhost"]
-     volumes:
-       - chroma_data:/chroma/chroma
-       - ../../config.yaml:/app/config.yaml:ro
-     restart: unless-stopped
-     # Security: Run as non-root user (if Dockerfile supports it)
-     security_opt:
-       - no-new-privileges:true
-     cap_drop:
-       - ALL
-     healthcheck:
-       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-       interval: 10s
-       retries: 3
-       start_period: 5s
-       timeout: 10s
-  
-   sync_worker:
-     build: .
-     environment:
-       - CHROMA_HOST=chromadb
-       - CHROMA_PORT=8000
-       - EMBED_MODEL_PATH=/models/nomic-embed-text-v1.5.Q4_K_M.gguf
-       - SYNC_DATABASE=${SYNC_DATABASE:-default}
-       # Security: Don't pass sensitive credentials via environment variables
-       # Instead, use Docker secrets or mounted credentials
-     volumes:
+  chromadb:
+    image: chromadb/chroma:0.5.0   # pin the version for reproducibility
+    ports:
+      - "127.0.0.1:8001:8000"     # Bind to localhost only - not exposed externally
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_TOKEN}
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenConfigServerAuthCredentialsProvider
+      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+      - ANONYMIZED_TELEMETRY=false
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["http://localhost"]
+    volumes:
+      - chroma_data:/chroma/chroma
+      - ../../config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    # Security: Run as non-root user (if Dockerfile supports it)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      retries: 3
+      start_period: 5s
+      timeout: 10s
+
+  sync_worker:
+    build: .
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - EMBED_MODEL_PATH=/models/nomic-embed-text-v1.5.Q4_K_M.gguf
+      - SYNC_DATABASE=${SYNC_DATABASE:-default}
+      # Security: Don't pass sensitive credentials via environment variables
+      # Instead, use Docker secrets or mounted credentials
+    volumes:
        # Security: Added noexec,nosuid,nodev to prevent privilege escalation
        - ${VAULT_PATH}:/vault:ro,noexec,nosuid,nodev
        - ${MODEL_STORE}:/models:ro,noexec,nosuid,nodev
        - sync_manifest:/app/manifest
-       - ../../config.yaml:/app/config.yaml:ro
-     depends_on:
-       chromadb:
-         condition: service_healthy
-     profiles:
-       - sync    # only runs when explicitly called, not on `compose up`
-     restart: unless-stopped
-     # Security: Prevent container from gaining additional privileges
-     security_opt:
-       - no-new-privileges:true
-     # Security: Drop all capabilities
-     cap_drop:
-       - ALL
-     # Security: Limit resources to prevent DoS
-     deploy:
-       resources:
-         limits:
-           memory: 1G
-           cpus: '0.5'
-     healthcheck:
-       test: ["CMD", "python", "-c", "try:\n import requests\n r = requests.get('http://chromadb:8000/api/v1/heartbeat', timeout=5)\n r.raise_for_status()\nexcept:\n sys.exit(1)"]
-       interval: 30s
-       retries: 3
-       start_period: 40s
-       timeout: 10s
+       - ../config.yaml:/app/config.yaml:ro
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    profiles:
+      - sync    # only runs when explicitly called, not on `compose up`
+    restart: unless-stopped
+    # Security: Prevent container from gaining additional privileges
+    security_opt:
+      - no-new-privileges:true
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    # Security: Limit resources to prevent DoS
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "python", "-c", "try:\n import requests\n r = requests.get('http://chromadb:8000/api/v1/heartbeat', timeout=5)\n r.raise_for_status()\nexcept:\n sys.exit(1)"]
+      interval: 30s
+      retries: 3
+      start_period: 40s
+      timeout: 10s
 
 volumes:
-   chroma_data:
-   sync_manifest:
+  chroma_data:
+  sync_manifest:

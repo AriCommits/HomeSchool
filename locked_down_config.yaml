@@ -37,7 +37,7 @@ network:
 paths:
   vault: "/path/to/SECURED/obsidian/vault"      # <-- CHANGE_ME: Use encrypted filesystem if needed
   model_store: "/path/to/SECURED/model/store"   # <-- CHANGE_ME: Protect AI models (may contain sensitive data)
-  manifest_dir: "/path/to/SECURED/manifest"     # <-- CHANGE_ME: Directory for internal tracking
+  manifest_dir: "/path/to/SECURED/.homeschool"     # <-- CHANGE_ME: Directory for internal tracking
 
 # =============
 # EMBEDDING MODEL

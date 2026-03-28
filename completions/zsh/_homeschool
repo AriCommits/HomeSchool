@@ -1,0 +1,20 @@
+#compdef homeschool
+
+_homeschool() {
+    local -a commands
+    commands=(
+        'init:Create example configuration'
+        'setup:Interactive setup wizard'
+        'sync:Sync notes to Anki'
+        'status:Check system status'
+        'logs:View log instructions'
+        'reset:Reset system to clean state'
+        'uninstall:Uninstall Homeschool'
+        'version:Show version information'
+        'completions:Install shell completions'
+    )
+    
+    _describe 'command' commands
+}
+
+_homeschool "$@"

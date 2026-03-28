@@ -40,8 +40,67 @@ See the templates in the repository root for detailed instructions.
 
 ## Quick Start
 
-### 1. Configuration
-Choose one of the configuration templates and copy it to `config.yaml`:
+### First-Time Setup
+Homeschool uses a three-step workflow:
+
+1. **Initialize** - Create configuration template:
+   ```bash
+   python -m homeschool init
+   ```
+   This checks Docker availability and creates a template config.
+
+2. **Configure** - Interactive setup wizard:
+   ```bash
+   python -m homeschool setup
+   ```
+   This will:
+   - Guide you through configuring required paths and settings
+   - Create a personalized config.yaml file
+   - Launch Docker services using docker compose
+
+3. **Sync** - Process your notes:
+   ```bash
+   python -m homeschool sync
+   ```
+
+You only need to run the setup wizard once. For subsequent runs, use:
+```bash
+python -m homeschool sync
+```
+
+### Shell Completions
+Enable tab completion for your shell:
+```bash
+# Bash
+python -m homeschool completions bash
+# Add to ~/.bashrc: source ~/.bash_completions/homeschool
+
+# Zsh  
+python -m homeschool completions zsh
+# Add to ~/.zshrc: fpath+=(~/.zsh_completions) && compinit
+
+# PowerShell
+python -m homeschool completions powershell
+# Add to $PROFILE: . ~/Documents/PowerShell/homeschool.ps1
+```
+
+### Common Commands
+
+| Command | Description |
+|---------|-------------|
+| `python -m homeschool init` | Create example configuration |
+| `python -m homeschool setup` | Interactive setup wizard |
+| `python -m homeschool sync` | Sync notes to Anki |
+| `python -m homeschool status` | Check system status |
+| `python -m homeschool logs` | View log instructions |
+| `python -m homeschool reset` | Reset system (requires confirmation) |
+| `python -m homeschool version` | Show version and check for updates |
+| `python -m homeschool uninstall` | Uninstall Homeschool |
+
+### Manual Configuration (Alternative)
+If you prefer manual configuration:
+
+1. Choose one of the configuration templates and copy it to `config.yaml`:
 ```bash
 # For development/local use:
 cp open_config.yaml config.yaml
@@ -50,28 +109,28 @@ cp open_config.yaml config.yaml
 cp locked_down_config.yaml config.yaml
 ```
 
-Then edit `config.yaml` to set:
+2. Edit `config.yaml` to set:
 - `paths.vault`: Path to your Obsidian vault
 - `paths.model_store`: Directory containing your .gguf model files  
 - `chromadb.auth_token`: Generate with `python3 -c "import secrets; print(secrets.token_hex(32))"`
 
-### 2. Start Required Services
+3. Start required services:
 ```bash
 # Start Jan AI (load your preferred model)
 # Start AnythingLLM Desktop (optional, for RAG)
 
 # Start Homeschool services
 cd .docker
-docker compose up -d chromadb
+docker compose up -d
 ```
 
-### 3. Process Your Notes
+4. Process your notes:
 ```bash
 # From project root
 python -m homeschool sync
 ```
 
-### 4. Review Results
+5. Review results:
 - Check Anki for new flashcards (requires manual confirmation)
 - Review generated questions and summaries in your vault
 - Process continues until you stop it

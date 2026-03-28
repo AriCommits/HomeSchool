@@ -26,7 +26,7 @@ network:
 paths:
   vault: "/path/to/your/obsidian/vault"  # <-- CHANGE_ME: Your Obsidian vault path
   model_store: "/path/to/your/models"    # <-- CHANGE_ME: Directory for AI models
-  manifest_dir: null                     # Uses default: ~/.sovereign_brain/manifest
+  manifest_dir: null                     # Uses default: ~/.homeschool
 
 # Embedding Model Configuration
 # These settings control the AI model used for understanding your notes

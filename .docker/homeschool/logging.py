@@ -29,7 +29,7 @@ SENSITIVE_PATTERNS = [
 ]
 
 
-def _sanitize_log_data(logger, name, event_dict):
+def _sanitize_log_data(event_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Remove sensitive information from log events.
     Called as a processor before logs are written.
@@ -65,10 +65,10 @@ def _filter_sensitive_fields(processor: Processor) -> Processor:
     """
     Wrap a processor to filter sensitive data from log output.
     """
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
         result = processor(*args, **kwargs)
         if isinstance(result, dict):
-            return _sanitize_log_data(None, None, result)
+            return _sanitize_log_data(result)
         return result
     return wrapped
 

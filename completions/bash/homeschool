@@ -1,0 +1,28 @@
+#!/bin/bash
+# Homeschool Bash Completions
+
+_homeschool() {
+    local cur prev words cword
+    _init_completion || return
+
+    case "$prev" in
+        init|setup|sync|status|logs|reset|uninstall|version|completions)
+            ;;
+        sync)
+            COMPREPLY=($(compgen -W "--database --force-regen" -- "$cur"))
+            ;;
+        reset|uninstall)
+            COMPREPLY=($(compgen -W "--confirm --keep-data --remove-repo --remove-git" -- "$cur"))
+            ;;
+        setup)
+            COMPREPLY=($(compgen -W "--non-interactive --no-start" -- "$cur"))
+            ;;
+        completions)
+            COMPREPLY=($(compgen -W "bash zsh powershell" -- "$cur"))
+            ;;
+        *)
+            COMPREPLY=($(compgen -W "init setup sync status logs reset uninstall version completions" -- "$cur"))
+            ;;
+    esac
+}
+complete -F _homeschool homeschool

@@ -1,30 +1,15 @@
 # src/homeschool/cli.py
 """
 Command-line interface for the Homeschool project.
-Provides commands for initialization, status checking, log viewing, system reset,
-setup, uninstall, version, and shell completions.
+Provides commands for initialization, status checking, log viewing, and system reset.
 """
 
 import argparse
 import os
-import platform
-import secrets
-import shutil
-import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .cli_helpers import (
-    REPO_ROOT,
-    check_docker_available, prompt_yes_no, prompt_choice,
-    prompt_path, prompt_token, prompt_database,
-    generate_config, start_docker_services,
-    export_token_to_downloads, nuke_homeschool_data,
-    remove_repository, get_version, check_for_updates,
-    get_manifest_dir
-)
 from .logging import configure_logging, get_logger
 from .config import load, ConfigError
 
@@ -45,20 +30,20 @@ def init_command(args: argparse.Namespace) -> int:
     # Create example configuration
     example_config = """# Homeschool Configuration
 # Copy this file to config.yaml and customize the values
- 
+
 hardware:
   gpu: "cpu"  # Options: cpu, nvidia, metal
- 
+
 network:
   bind_host: "localhost"
   ports:
     chromadb: 8000
- 
+
 paths:
   vault: "/path/to/your/obsidian/vault"
   model_store: "/path/to/your/ModelStore"
-  manifest_dir: null  # Uses default: ~/.homeschool
- 
+  manifest_dir: null  # Uses default: ~/.sovereign_brain/manifest
+
 embedding:
   model_file: "nomic-embed-text-v1.5.Q4_K_M.gguf"
   n_ctx: 512
@@ -68,12 +53,12 @@ embedding:
     - "##"
     - "###"
   embed_batch_size: 32
- 
+
 chromadb:
   collection_name: "homeschool"
   distance_metric: "cosine"
   auth_token: "CHANGE_ME"  # Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
- 
+
 sync:
   exclude_patterns:
     - "**/*.tmp"
@@ -81,7 +66,7 @@ sync:
     - "**/.git/**"
   prune_deleted: true
   embed_batch_size: 32
- 
+
 jan:
   base_url: "http://localhost:1337"
   inference_model: "nemotron-3-super"
@@ -145,7 +130,7 @@ def status_command(args: argparse.Namespace) -> int:
         except FileNotFoundError:
             logger.error("Docker command not found")
             return 1
-        
+            
         # Check manifest database
         manifest_dir = config.paths.manifest_dir
         manifest_db = manifest_dir / "manifest.db"
@@ -222,7 +207,7 @@ def reset_command(args: argparse.Namespace) -> int:
                 cwd=docker_dir,
                 check=True
             )
-        
+            
         print("Reset completed successfully")
         return 0
         
@@ -243,156 +228,13 @@ def _validate_database_name(database: str) -> bool:
     return bool(re.match(r'^[a-zA-Z0-9_-]+$', database))
 
 
-def setup_command(args: argparse.Namespace) -> int:
-    """Interactive setup wizard."""
-    print("Welcome to Homeschool Setup!")
-    print("This will guide you through initial configuration.\n")
-    
-    if args.non_interactive:
-        choice = "I'll edit config.yaml manually"
-    else:
-        choice = prompt_choice(
-            "Choose setup mode",
-            ["Interactive setup (recommended)", "I'll edit config.yaml manually"]
-        )
-
-    if choice == "I'll edit config.yaml manually":
-        print(f"\nConfig template created at: {REPO_ROOT / 'config.yaml'}")
-        print("Edit it, then run: python -m homeschool setup --no-start")
-        return 0
-
-    vault = prompt_path("Obsidian vault path")
-    model_store = prompt_path("model store path")
-    token = prompt_token()
-    database = prompt_database()
-    
-    print("\nCreating config.yaml...")
-    generate_config(vault, model_store, token, database)
-    print("✓ Configuration saved")
-    
-    if not args.no_start:
-        print("\nStarting Docker services...")
-        if start_docker_services():
-            print("✓ Docker services started")
-        else:
-            print("⚠ Docker services could not be started")
-            print("  Run 'cd .docker && docker compose up -d' manually")
-    
-    print("\n✓ Setup complete! Next: python -m homeschool sync")
-    return 0
-
-
-def uninstall_command(args: argparse.Namespace) -> int:
-    """Uninstall Homeschool."""
-    print("This will uninstall Homeschool.\n")
-    
-    # Determine removal level
-    if args.keep_data:
-        level = 1
-    elif args.confirm:
-        level = args.confirm
-    else:
-        level = prompt_choice(
-            "Select removal level",
-            [
-                "Soft uninstall - Keep all data",
-                "Full uninstall - Remove data, keep repo",
-                "Complete removal - Remove everything"
-            ],
-            default="Full uninstall - Remove data, keep repo"
-        )
-        if level.startswith("Soft"):
-            level = 1
-        elif level.startswith("Full"):
-            level = 2
-        else:
-            level = 3
-    
-    # Get current token for export prompt
-    token = None
-    if level >= 2:
-        try:
-            config = load()
-            token = config.chromadb.auth_token
-        except:
-            pass
-        
-        if token and prompt_yes_no("Export ChromaDB token before deletion?"):
-            backup_path = export_token_to_downloads(token)
-            print(f"✓ Token saved to: {backup_path}")
-    
-    # Execute removal
-    print("\nRemoving Homeschool data...")
-    results = nuke_homeschool_data()
-    
-    if level >= 3:
-        print("\nRemoving repository...")
-        if args.remove_git is None:
-            remove_git = prompt_yes_no("Delete .git directory?", default=False)
-        else:
-            remove_git = args.remove_git
-        remove_repository(include_git=remove_git)
-    
-    print("\n✓ Uninstall complete!")
-    return 0
-
-
-def version_command(args: argparse.Namespace) -> int:
-    """Show version information."""
-    current = get_version()
-    print(f"Homeschool version: {current}")
-    
-    update_available, latest = check_for_updates()
-    if update_available:
-        print(f"⚠ Update available: {latest}")
-        print(f"  Run: pip install --upgrade homeschool")
-    else:
-        print("✓ You have the latest version")
-    
-    return 0
-
-
-def completions_command(args: argparse.Namespace) -> int:
-    """Install shell completions."""
-    shell = args.shell
-    
-    completions_dir = REPO_ROOT / "completions"
-    install_path = None
-    
-    if shell == "bash":
-        content = (completions_dir / "bash" / "homeschool").read_text()
-        dest = Path.home() / ".bash_completions" / "homeschool"
-        dest.parent.mkdir(exist_ok=True)
-        dest.write_text(content)
-        print(f"✓ Installed bash completions to: {dest}")
-        print("  Add to ~/.bashrc: source ~/.bash_completions/homeschool")
-    
-    elif shell == "zsh":
-        content = (completions_dir / "zsh" / "_homeschool").read_text()
-        dest = Path.home() / ".zsh_completions" / "_homeschool"
-        dest.parent.mkdir(exist_ok=True)
-        dest.write_text(content)
-        print(f"✓ Installed zsh completions to: {dest}")
-        print("  Add to ~/.zshrc: fpath+=(~/.zsh_completions) && compinit")
-    
-    elif shell == "powershell":
-        content = (completions_dir / "powershell" / "homeschool.ps1").read_text()
-        dest = Path.home() / "Documents" / "PowerShell" / "homeschool.ps1"
-        dest.parent.mkdir(exist_ok=True)
-        dest.write_text(content)
-        print(f"✓ Installed PowerShell completions to: {dest}")
-        print("  Add to $PROFILE: . ~/Documents/PowerShell/homeschool.ps1")
-    
-    return 0
-
-
 def sync_command(args: argparse.Namespace) -> int:
     """Manually trigger synchronization process."""
     
     # Validate database name before use (Security: prevent command injection)
     if not _validate_database_name(args.database):
         logger.error("Invalid database name - must be alphanumeric with hyphens/underscores only",
-                     database=args.database)
+                    database=args.database)
         print(f"Error: Invalid database name '{args.database}'.")
         print("Database names can only contain letters, numbers, hyphens, and underscores.")
         return 1
@@ -471,13 +313,9 @@ def main() -> int:
         epilog="""
 Examples:
   homeschool init          # Create initial configuration
-  homeschool setup        # Interactive setup wizard
-  homeschool sync          # Sync notes to Anki
   homeschool status        # Check system status
   homeschool logs          # View log instructions
   homeschool reset         # Reset system (requires confirmation)
-  homeschool version       # Show version and check for updates
-  homeschool uninstall     # Uninstall Homeschool
         """
     )
     
@@ -537,60 +375,7 @@ Examples:
         help="Keep Docker volumes when resetting"
     )
     reset_parser.set_defaults(func=reset_command)
-    
-    # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Interactive setup wizard")
-    setup_parser.add_argument(
-        "--non-interactive",
-        action="store_true",
-        help="Skip interactive prompts"
-    )
-    setup_parser.add_argument(
-        "--no-start",
-        action="store_true",
-        help="Create config but don't start Docker"
-    )
-    setup_parser.set_defaults(func=setup_command)
-    
-    # Uninstall command
-    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Homeschool")
-    uninstall_parser.add_argument(
-        "--confirm",
-        type=int,
-        choices=[1, 2, 3],
-        metavar="LEVEL",
-        help="Uninstall level: 1=soft, 2=full, 3=complete"
-    )
-    uninstall_parser.add_argument(
-        "--keep-data",
-        action="store_true",
-        help="Skip data removal (same as --confirm 1)"
-    )
-    uninstall_parser.add_argument(
-        "--remove-repo",
-        action="store_true",
-        help="Also remove repository directory"
-    )
-    uninstall_parser.add_argument(
-        "--remove-git",
-        action="store_true",
-        help="Include .git in repository removal"
-    )
-    uninstall_parser.set_defaults(func=uninstall_command)
-    
-    # Version command
-    version_parser = subparsers.add_parser("version", help="Show version info")
-    version_parser.set_defaults(func=version_command)
-    
-    # Completions command
-    comp_parser = subparsers.add_parser("completions", help="Install shell completions")
-    comp_parser.add_argument(
-        "shell",
-        choices=["bash", "zsh", "powershell"],
-        help="Shell type"
-    )
-    comp_parser.set_defaults(func=completions_command)
-    
+
     # Sync command
     sync_parser = subparsers.add_parser("sync", help="Manually trigger synchronization")
     sync_parser.add_argument(
