@@ -23,4 +23,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY homeschool/ ./homeschool/
 
-CMD ["python", "-m", "homeschool", "sync"]
+CMD ["python", "-m", "homeschool.sync"]

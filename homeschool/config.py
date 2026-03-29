@@ -235,9 +235,19 @@ class NetworkConfig:
 
 class PathsConfig:
     def __init__(self, d: dict):
-        self.vault:        Path = Path(d["vault"])
-        self.model_store:  Path = Path(d["model_store"])
-        self.manifest_dir: Path = (
+        in_container = os.environ.get("HOMESCHOOL_IN_CONTAINER") == "1"
+
+        if in_container:
+            self.vault = Path(os.environ.get("HOMESCHOOL_VAULT_PATH", "/vault"))
+            self.model_store = Path(os.environ.get("HOMESCHOOL_MODEL_STORE", "/models"))
+            self.manifest_dir = Path(
+                os.environ.get("HOMESCHOOL_MANIFEST_DIR", "/app/manifest")
+            )
+            return
+
+        self.vault = Path(d["vault"])
+        self.model_store = Path(d["model_store"])
+        self.manifest_dir = (
             Path(d["manifest_dir"]) if d.get("manifest_dir")
             else DEFAULT_MANIFEST_DIR
         )

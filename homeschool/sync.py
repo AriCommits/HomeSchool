@@ -85,11 +85,10 @@ vault_subpath=vault_subpath,
         
         # Initialize ChromaDB client
         chroma_settings = Settings(
-            chroma_server_auth_credentials=config.chromadb.auth_token,
-            chroma_server_auth_credentials_provider="chromadb.auth.token.TokenConfigServerAuthCredentialsProvider",
-            chroma_server_auth_provider="chromadb.auth.token.TokenAuthServerProvider",
+            chroma_client_auth_credentials=config.chromadb.auth_token,
+            chroma_client_auth_provider="chromadb.auth.token_authn.TokenAuthClientProvider",
             anonymized_telemetry=False,
-            is_persistent=False
+            is_persistent=False,
         )
         
         # Connect to ChromaDB server

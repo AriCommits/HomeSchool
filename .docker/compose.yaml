@@ -6,9 +6,9 @@ services:
     ports:
       - "127.0.0.1:8001:8000"     # Bind to localhost only - not exposed externally
     environment:
-      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_TOKEN}
-      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenConfigServerAuthCredentialsProvider
-      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_TOKEN}
+      - CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+      - CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=AUTHORIZATION
       - ANONYMIZED_TELEMETRY=false
       - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["http://localhost"]
     volumes:
@@ -36,6 +36,14 @@ services:
       - CHROMA_PORT=8000
       - EMBED_MODEL_PATH=/models/nomic-embed-text-v1.5.Q4_K_M.gguf
       - SYNC_DATABASE=${SYNC_DATABASE:-default}
+      - HOMESCHOOL_IN_CONTAINER=1
+      - HOMESCHOOL_VAULT_PATH=/vault
+      - HOMESCHOOL_MODEL_STORE=/models
+      - HOMESCHOOL_MANIFEST_DIR=/app/manifest
+      - HF_HOME=/app/manifest/hf
+      - TRANSFORMERS_CACHE=/app/manifest/hf/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/app/manifest/hf/sentence_transformers
+      - TORCH_HOME=/app/manifest/hf/torch
       # Security: Don't pass sensitive credentials via environment variables
       # Instead, use Docker secrets or mounted credentials
     volumes:
@@ -59,7 +67,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev
-    user: "65532:65532"
     # Security: Limit resources to prevent DoS
     mem_limit: 1g
     cpus: 0.5
