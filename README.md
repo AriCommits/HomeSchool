@@ -1,191 +1,144 @@
 # Homeschool
 
-A personal knowledge management and learning assistant that helps you process educational notes into effective study materials using local AI tools.
+Homeschool is a local-first study workflow that turns Markdown notes into flashcards and exports Anki packages (`.apkg`) for manual import.
 
 ## Overview
 
-Homeschool is a privacy-focused, local-first system that transforms your class notes into:
-- Anki flashcards (cloze deletion, image occlusion, multiple choice)
-- Short answer review questions
-- Concept summaries and extensions
-- Answers to your questions
+Homeschool scans your vault, extracts `question::answer` cards, stores semantic data in ChromaDB, and builds Anki packages you import yourself.
 
-The system emphasizes manual control, privacy, and ease of use.
+- Local-first processing by default
+- Manual sync and export control
+- Multi-database sync targets
+- APKG export instead of live AnkiConnect upload
 
 ## Key Features
 
-- **Manual Sync Control**: Run `python -m homeschool sync` when you want to process notes
-- **Privacy-First**: All processing happens locally by default
-- **Flexible AI Integration**: Works with Jan AI, AnythingLLM, and other local tools
-- **Obsidian Compatible**: Designed to work with your existing note-taking workflow
-- **Anki Package Export**: Generates `.apkg` files for manual import into Anki
-- **Configurable**: Adjust behavior through `config.yaml`
+- **Manual Sync**: Run sync only when you want updates
+- **APKG Export**: Writes timestamped `.apkg` files for Anki `File -> Import`
+- **Database Scoping**: Sync a specific configured database with `--database`
+- **Force Regeneration**: Rebuild all card embeddings with `--force-regen`
+- **Path Safety**: Canonical vault-path containment checks for sync boundaries
+- **Secure Defaults**: Placeholder tokens in tracked configs and hardened Docker settings
 
-## Configuration Templates
+## Requirements
 
-To help you get started, we provide two configuration templates:
-
-1. **open_config.yaml** - For development and local use
-   - Contains clear placeholders with comments
-   - Development-friendly defaults
-   - Copy to `config.yaml` and replace CHANGE_ME values
-
-2. **locked_down_config.yaml** - For production and security-focused deployments
-   - Security best practices and guidance
-   - Strong credential requirements
-   - Hardening recommendations
-   - Copy to `config.yaml` and thoroughly review/adjust
-
-See the templates in the repository root for detailed instructions.
+- Python 3.11+
+- Docker with Docker Compose
+- Anki desktop app (for manual package import)
 
 ## Quick Start
 
-### First-Time Setup
-Homeschool uses a three-step workflow:
+### 1) Initialize config
 
-1. **Initialize** - Create configuration template:
-   ```bash
-   python -m homeschool init
-   ```
-   This checks Docker availability and creates a template config.
+```bash
+python -m homeschool init
+```
 
-2. **Configure** - Interactive setup wizard:
-   ```bash
-   python -m homeschool setup
-   ```
-   This will:
-   - Guide you through configuring required paths and settings
-   - Create a personalized config.yaml file
-   - Launch Docker services using docker compose
+This creates a `config.yaml` template in your current directory.
 
-3. **Sync** - Process your notes:
-   ```bash
-   python -m homeschool sync
-   ```
-   This generates a local `.apkg` file and prints its path.
+### 2) Configure paths and token
 
-4. **Import package into Anki**
-   - Open Anki
-   - Use `File -> Import`
-   - Select the generated `.apkg`
+Edit `config.yaml` and set:
 
-You only need to run the setup wizard once. For subsequent runs, use:
+- `paths.vault`
+- `paths.model_store`
+- `chromadb.auth_token` (not `CHANGE_ME`)
+
+Generate a token:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 3) Run setup
+
+```bash
+python -m homeschool setup
+```
+
+### 4) Sync and export package
+
 ```bash
 python -m homeschool sync
 ```
 
-### Shell Completions
-Enable tab completion for your shell:
+You will see the generated package path, then import it in Anki:
+
+1. Open Anki
+2. `File -> Import`
+3. Select the generated `.apkg`
+
+## CLI Commands
+
+- `python -m homeschool init` create config template
+- `python -m homeschool setup` interactive setup
+- `python -m homeschool sync` sync and export APKG
+- `python -m homeschool sync --database <name>` sync one configured database
+- `python -m homeschool sync --force-regen` clear and rebuild collection data before sync
+- `python -m homeschool status` check system status
+- `python -m homeschool logs` show logging guidance
+- `python -m homeschool reset --confirm` reset system state
+- `python -m homeschool version` show version/check updates
+- `python -m homeschool uninstall` uninstall workflow
+
+## Docker Notes
+
+- Compose file: `.docker/compose.yaml`
+- Build uses project root context and `.docker/Dockerfile`
+- `config.yaml` is mounted at runtime (not copied into image)
+- Sync worker is hardened with read-only root filesystem, dropped capabilities, and resource limits
+
+Start services manually if needed:
+
 ```bash
-# Bash
-python -m homeschool completions bash
-# Add to ~/.bashrc: source ~/.bash_completions/homeschool
-
-# Zsh  
-python -m homeschool completions zsh
-# Add to ~/.zshrc: fpath+=(~/.zsh_completions) && compinit
-
-# PowerShell
-python -m homeschool completions powershell
-# Add to $PROFILE: . ~/Documents/PowerShell/homeschool.ps1
+docker compose -f .docker/compose.yaml up -d chromadb
 ```
 
-### Common Commands
+## Security Notes
 
-| Command | Description |
-|---------|-------------|
-| `python -m homeschool init` | Create example configuration |
-| `python -m homeschool setup` | Interactive setup wizard |
-| `python -m homeschool sync` | Build `.apkg` for Anki import |
-| `python -m homeschool status` | Check system status |
-| `python -m homeschool logs` | View log instructions |
-| `python -m homeschool reset` | Reset system (requires confirmation) |
-| `python -m homeschool version` | Show version and check for updates |
-| `python -m homeschool uninstall` | Uninstall Homeschool |
+- Keep real secrets out of tracked files (`config.yaml`, `.env`)
+- Use placeholder values in committed config files
+- Secret scanning is integrated in CI for tracked files
+- Dependency auditing is integrated in CI for runtime requirements
 
-### Manual Configuration (Alternative)
-If you prefer manual configuration:
+## Project Structure
 
-1. Choose one of the configuration templates and copy it to `config.yaml`:
-```bash
-# For development/local use:
-cp open_config.yaml config.yaml
-
-# OR for production/security-focused use:
-cp locked_down_config.yaml config.yaml
+```text
+.
+|- .docker/
+|- .github/
+|- homeschool/
+|  |- __main__.py
+|  |- apkg_exporter.py
+|  |- cli.py
+|  |- config.py
+|  |- path_security.py
+|  `- sync.py
+|- tests/
+|- config.yaml
+|- open_config.yaml
+|- locked_down_config.yaml
+`- requirements-dev.txt
 ```
-
-2. Edit `config.yaml` to set:
-- `paths.vault`: Path to your Obsidian vault
-- `paths.model_store`: Directory containing your .gguf model files  
-- `chromadb.auth_token`: Generate with `python3 -c "import secrets; print(secrets.token_hex(32))"`
-
-3. Start required services:
-```bash
-# Start Jan AI (load your preferred model)
-# Start AnythingLLM Desktop (optional, for RAG)
-
-# Start Homeschool services
-cd .docker
-docker compose up -d
-```
-
-4. Process your notes:
-```bash
-# From project root
-python -m homeschool sync
-```
-
-5. Import into Anki manually:
-- Open Anki, then `File -> Import`
-- Select the generated `.apkg` file from the sync output path
-
-6. Review results:
-- Check Anki for new flashcards (requires manual confirmation)
-- Review generated questions and summaries in your vault
-- Process continues until you stop it
-
-### APKG Output
-
-`python -m homeschool sync` creates a timestamped `.apkg` file under your manifest export directory and prints its absolute path.
-
-If you use multiple configured databases, run:
-```bash
-python -m homeschool sync --database <name>
-```
-to generate a package specific to that database.
-
-## Workflows
-
-See the `docs/` directory for detailed workflows:
-- [Learning Workflow](docs/Learning%20Workflow.md) - How to generate study materials from notes
-- [Local AI Workflow](docs/Local%20AI%20Workflow.md) - Local-first AI setup for development
 
 ## Development
 
-Homeschool is structured as a Python package. For development:
-
 ```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install development dependencies
-pip install pyyaml structlog
-
-# Run tests
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+pip install -r .docker/requirements.txt
 python -m pytest
 ```
 
-## Contributing
+Optional checks:
 
-See `.opencode/plans/improvement_plan.md` for planned enhancements.
+```bash
+detect-secrets-hook <tracked-files>
+pip-audit -r .docker/requirements.txt
+```
 
-## License
+## Workflows and Plans
 
-[Specify your license here]
-
-## Acknowledgments
-
-- Built with open-source tools including ChromaDB, Jan AI, and Continue
-- Inspired by privacy-focused, local-first AI workflows
+- Learning and local AI workflow docs: `docs/`
+- Project planning and audits: `.opencode/plans/`

@@ -167,14 +167,31 @@ def status_command(args: argparse.Namespace) -> int:
 
 def logs_command(args: argparse.Namespace) -> int:
     """View recent logs from the Homeschool system."""
-    logger.info("Displaying recent logs")
-    
-    # For now, just show instructions since we don't have centralized logging yet
-    print("To view logs:")
-    print("1. Docker service logs: docker compose -f .docker/compose.yaml logs -f")
-    print("2. Application logs: Check stdout/stderr when running commands")
-    print("3. Transaction logs: Check the manifest database for sync history")
-    
+    docker_dir = Path(__file__).parent.parent / ".docker"
+    if not docker_dir.exists():
+        print("Error: Docker directory not found.")
+        return 1
+
+    try:
+        config = load()
+    except ConfigError as e:
+        print(f"Error loading config: {e}")
+        return 1
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "CHROMA_TOKEN": config.chromadb.auth_token,
+            "VAULT_PATH": str(config.paths.vault),
+            "MODEL_STORE": str(config.paths.model_store),
+        }
+    )
+
+    subprocess.run(
+        ["docker", "compose", "logs", "--tail=100", "-f"],
+        cwd=docker_dir,
+        env=env,
+    )
     return 0
 
 
@@ -437,30 +454,53 @@ def sync_command(args: argparse.Namespace) -> int:
     
     # Run docker compose to start the sync worker
     try:
-        logger.info("Running docker compose", docker_dir=str(docker_dir))
-        result = subprocess.run(
+        # Step 1: Ensure ChromaDB is running
+        logger.info("Ensuring ChromaDB is running", docker_dir=str(docker_dir))
+        subprocess.run(
+            ["docker", "compose", "up", "-d", "chromadb"],
+            cwd=docker_dir,
+            check=True,
+            env=env,
+        )
+
+        # Step 2: Wait for ChromaDB to be healthy (up to 30 seconds)
+        logger.info("Waiting for ChromaDB to be healthy")
+        for _ in range(30):
+            result = subprocess.run(
+                ["docker", "compose", "ps", "--format", "json", "chromadb"],
+                cwd=docker_dir,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            if '"healthy"' in result.stdout or '"running"' in result.stdout:
+                break
+            import time
+
+            time.sleep(1)
+        else:
+            print("Error: ChromaDB did not become healthy within 30 seconds.")
+            print("Check logs with: docker compose -f .docker/compose.yaml logs chromadb")
+            return 1
+
+        # Step 3: Run sync worker with live streaming output
+        logger.info("Running sync worker", docker_dir=str(docker_dir))
+        subprocess.run(
             ["docker", "compose", "run", "--rm", "sync_worker"],
             cwd=docker_dir,
-            capture_output=True,
-            text=True,
             check=True,
-            env=env
+            env=env,
         )
         logger.info("Sync completed successfully")
-        print(result.stdout)
-        if result.stderr:
-            print("Warnings:", result.stderr)
         return 0
     except subprocess.CalledProcessError as e:
-        logger.error("Sync failed", exit_code=e.returncode, stdout=e.stdout, stderr=e.stderr)
+        logger.error("Sync failed", exit_code=e.returncode)
         print(f"Sync failed with exit code {e.returncode}")
-        if e.stdout:
-            print("STDOUT:", e.stdout)
-        if e.stderr:
-            print("STDERR:", e.stderr)
+        print("Run 'homeschool status' for diagnostics.")
         return e.returncode
     except FileNotFoundError:
         logger.error("Docker command not found")
+        print("Error: Docker is not installed or not on PATH.")
         return 1
 
 
