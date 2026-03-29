@@ -56,6 +56,18 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 python -m homeschool setup
 ```
 
+If you configured `config.yaml` manually, validate it without starting Docker:
+
+```bash
+python -m homeschool setup --no-start
+```
+
+If validation passes, run sync directly:
+
+```bash
+python -m homeschool sync
+```
+
 ### 4) Sync and export package
 
 ```bash

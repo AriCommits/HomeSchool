@@ -274,9 +274,36 @@ def setup_command(args: argparse.Namespace) -> int:
         )
 
     if choice == "I'll edit config.yaml manually":
-        print(f"\nConfig template created at: {REPO_ROOT / 'config.yaml'}")
-        print("Edit it, then run: python -m homeschool setup --no-start")
-        return 0
+        config_path = REPO_ROOT / "config.yaml"
+        if not config_path.exists():
+            print("\nError: config.yaml not found.")
+            print("Run: python -m homeschool init")
+            return 1
+
+        print(f"\nUsing config at: {config_path}")
+
+        try:
+            load.cache_clear()
+            load()
+            print("\u2713 config.yaml validation passed")
+        except ConfigError as e:
+            print(f"Error: config.yaml is invalid:\n{e}")
+            return 1
+
+        if args.no_start:
+            print("\nNo-start mode enabled. Skipping Docker startup.")
+            print("Next: python -m homeschool sync")
+            return 0
+
+        print("\nStarting Docker services...")
+        if start_docker_services():
+            print("\u2713 Docker services started")
+            print("\n\u2713 Setup complete! Next: python -m homeschool sync")
+            return 0
+
+        print("\u26a0 Docker services could not be started")
+        print("  Run 'cd .docker && docker compose up -d' manually")
+        return 1
 
     vault = prompt_path("Obsidian vault path")
     model_store = prompt_path("model store path")
