@@ -20,7 +20,7 @@ from .cli_helpers import (
     REPO_ROOT,
     check_docker_available, prompt_yes_no, prompt_choice,
     prompt_path, prompt_token, prompt_database,
-    generate_config, start_docker_services,
+    generate_config, start_docker_services, compose_env_from_config,
     export_token_to_downloads, nuke_homeschool_data,
     remove_repository, get_version, check_for_updates,
     get_manifest_dir
@@ -118,13 +118,7 @@ def status_command(args: argparse.Namespace) -> int:
             logger.error("Docker directory not found")
             return 1
         
-        # Set environment variables for docker-compose
-        env = os.environ.copy()
-        env.update({
-            "CHROMA_TOKEN": config.chromadb.auth_token,
-            "VAULT_PATH": str(config.paths.vault),
-            "MODEL_STORE": str(config.paths.model_store)
-        })
+        env = compose_env_from_config(config)
         
         # Check if docker-compose is available
         try:
@@ -178,14 +172,7 @@ def logs_command(args: argparse.Namespace) -> int:
         print(f"Error loading config: {e}")
         return 1
 
-    env = os.environ.copy()
-    env.update(
-        {
-            "CHROMA_TOKEN": config.chromadb.auth_token,
-            "VAULT_PATH": str(config.paths.vault),
-            "MODEL_STORE": str(config.paths.model_store),
-        }
-    )
+    env = compose_env_from_config(config)
 
     subprocess.run(
         ["docker", "compose", "logs", "--tail=100", "-f"],
@@ -212,6 +199,8 @@ def reset_command(args: argparse.Namespace) -> int:
         # Stop Docker services
         import subprocess
         from pathlib import Path
+
+        env = compose_env_from_config()
         
         docker_dir = Path(__file__).parent.parent / ".docker"
         if docker_dir.exists():
@@ -219,7 +208,8 @@ def reset_command(args: argparse.Namespace) -> int:
             subprocess.run(
                 ["docker", "compose", "down"],
                 cwd=docker_dir,
-                check=True
+                check=True,
+                env=env,
             )
         
         # Remove manifest database unless --keep-data is specified
@@ -237,7 +227,8 @@ def reset_command(args: argparse.Namespace) -> int:
             subprocess.run(
                 ["docker", "compose", "down", "-v"],
                 cwd=docker_dir,
-                check=True
+                check=True,
+                env=env,
             )
         
         print("Reset completed successfully")
@@ -470,14 +461,13 @@ def sync_command(args: argparse.Namespace) -> int:
     # Set environment variables for docker-compose
     # Security Note: Tokens in environment variables are visible via /proc
     # This is a known limitation of container orchestration
-    env = os.environ.copy()
-    env.update({
-        "CHROMA_TOKEN": config.chromadb.auth_token,
-        "VAULT_PATH": str(config.paths.vault),
-        "MODEL_STORE": str(config.paths.model_store),
-        "SYNC_DATABASE": args.database,
-        "FORCE_REGEN": "1" if args.force_regen else "0",
-    })
+    env = compose_env_from_config(config)
+    env.update(
+        {
+            "SYNC_DATABASE": args.database,
+            "FORCE_REGEN": "1" if args.force_regen else "0",
+        }
+    )
     
     # Run docker compose to start the sync worker
     try:

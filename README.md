@@ -34,11 +34,11 @@ Homeschool scans your vault, extracts `question::answer` cards, stores semantic 
 python -m homeschool init
 ```
 
-This creates a `config.yaml` template in your current directory.
+This creates a local `config.yaml` template in your current directory.
 
 ### 2) Configure paths and token
 
-Edit `config.yaml` and set:
+Edit your local `config.yaml` and set:
 
 - `paths.vault`
 - `paths.model_store`
@@ -97,8 +97,10 @@ You will see the generated package path, then import it in Anki:
 
 - Compose file: `.docker/compose.yaml`
 - Build uses project root context and `.docker/Dockerfile`
-- `config.yaml` is mounted at runtime (not copied into image)
+- local `config.yaml` is mounted at runtime (not copied into image)
 - Sync worker is hardened with read-only root filesystem, dropped capabilities, and resource limits
+- CLI commands (`python -m homeschool ...`) derive Docker variables from `config.yaml` automatically
+- Chroma host port is sourced from `network.ports.chromadb` in `config.yaml` (default `8000`)
 
 Start services manually if needed:
 
@@ -108,7 +110,7 @@ docker compose -f .docker/compose.yaml up -d chromadb
 
 ## Security Notes
 
-- Keep real secrets out of tracked files (`config.yaml`, `.env`)
+- Keep real secrets in local-only files (`config.yaml`, optional `.env`)
 - Use placeholder values in committed config files
 - Secret scanning is integrated in CI for tracked files
 - Dependency auditing is integrated in CI for runtime requirements
@@ -127,11 +129,12 @@ docker compose -f .docker/compose.yaml up -d chromadb
 |  |- path_security.py
 |  `- sync.py
 |- tests/
-|- config.yaml
 |- open_config.yaml
 |- locked_down_config.yaml
 `- requirements-dev.txt
 ```
+
+`config.yaml` is intentionally local and not tracked in git.
 
 ## Development
 

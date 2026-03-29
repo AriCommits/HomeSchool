@@ -5,11 +5,14 @@ All functions use pathlib exclusively and avoid os where possible.
 """
 
 import secrets
+import os
 import subprocess
 import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+from .config import load, ConfigError
 
 # ─────────────────────────────────────────────────────────────
 # Path Management
@@ -135,39 +138,77 @@ def check_docker_available() -> bool:
         return False
 
 
-def start_docker_services() -> bool:
+def compose_env_from_config(config=None) -> dict[str, str]:
+    """Build docker-compose environment from config.yaml.
+
+    Falls back to safe placeholders when config cannot be loaded so commands
+    like `docker compose down` still parse successfully.
+    """
+    env = os.environ.copy()
+
+    if config is None:
+        try:
+            config = load()
+        except ConfigError:
+            config = None
+
+    if config is None:
+        env.setdefault("CHROMA_TOKEN", "placeholder-token")
+        env.setdefault("VAULT_PATH", str(REPO_ROOT))
+        env.setdefault("MODEL_STORE", str(REPO_ROOT))
+        env.setdefault("HOST_CHROMA_PORT", "8000")
+        return env
+
+    env.update(
+        {
+            "CHROMA_TOKEN": config.chromadb.auth_token,
+            "VAULT_PATH": str(config.paths.vault),
+            "MODEL_STORE": str(config.paths.model_store),
+            "HOST_CHROMA_PORT": str(config.network.ports.get("chromadb", 8000)),
+        }
+    )
+    return env
+
+
+def start_docker_services(config=None) -> bool:
     """Start Docker services via docker compose."""
     try:
+        env = compose_env_from_config(config)
         subprocess.run(
             ["docker", "compose", "up", "-d"],
             cwd=DOCKER_DIR,
-            check=True
+            check=True,
+            env=env,
         )
         return True
     except subprocess.CalledProcessError:
         return False
 
 
-def stop_docker_services() -> bool:
+def stop_docker_services(config=None) -> bool:
     """Stop Docker services."""
     try:
+        env = compose_env_from_config(config)
         subprocess.run(
             ["docker", "compose", "down"],
             cwd=DOCKER_DIR,
-            check=True
+            check=True,
+            env=env,
         )
         return True
     except subprocess.CalledProcessError:
         return False
 
 
-def remove_docker_volumes() -> bool:
+def remove_docker_volumes(config=None) -> bool:
     """Remove Docker volumes (ChromaDB data)."""
     try:
+        env = compose_env_from_config(config)
         subprocess.run(
             ["docker", "compose", "down", "-v"],
             cwd=DOCKER_DIR,
-            check=True
+            check=True,
+            env=env,
         )
         return True
     except subprocess.CalledProcessError:
@@ -270,9 +311,14 @@ TOKEN:
 def nuke_homeschool_data() -> dict[str, bool]:
     """Remove all data created by Homeschool CLI."""
     results = {}
+    config = None
+    try:
+        config = load()
+    except ConfigError:
+        config = None
     
     # 1. Docker volumes
-    results["docker_volumes"] = remove_docker_volumes()
+    results["docker_volumes"] = remove_docker_volumes(config)
     
     # 2. Manifest database
     manifest = get_manifest_dir()
