@@ -78,18 +78,9 @@ vault_subpath=vault_subpath,
         # Import ChromaDB client
         try:
             import chromadb
-            from chromadb.config import Settings
         except ImportError:
             logger.error("ChromaDB client not available")
             sys.exit(1)
-        
-        # Initialize ChromaDB client
-        chroma_settings = Settings(
-            chroma_client_auth_credentials=config.chromadb.auth_token,
-            chroma_client_auth_provider="chromadb.auth.token_authn.TokenAuthClientProvider",
-            anonymized_telemetry=False,
-            is_persistent=False,
-        )
         
         # Connect to ChromaDB server
         host = os.environ.get("CHROMA_HOST", "chromadb")
@@ -99,7 +90,6 @@ vault_subpath=vault_subpath,
         client = chromadb.HttpClient(
             host=host,
             port=port,
-            settings=chroma_settings
         )
         
         # Test connection
