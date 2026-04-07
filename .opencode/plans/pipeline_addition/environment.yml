@@ -1,0 +1,19 @@
+name: lecture-pipeline
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - faster-whisper
+      - langchain
+      - langchain-community
+      - langchain-chroma
+      - chromadb
+      - ollama
+      - python-dotenv
+      - pydantic
+      - pyyaml
+      - click
+      - rich

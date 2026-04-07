@@ -1,0 +1,18 @@
+# ============================================================
+# lecture-pipeline base configuration
+# Pipeline-specific configs in each pipeline's directory
+# will deep-merge on top of these defaults.
+# ============================================================
+
+project:
+  name: lecture-pipeline
+  semester: ""                    # e.g. spring_2026
+
+paths:
+  vault_output: ~/Repos/HomeSchool/vault/lectures/
+  scratch_dir: ~/Downloads/lecture-pipeline/
+
+chroma:
+  collection: lecture_pipeline
+  chunk_size: 750
+  chunk_overlap: 150
